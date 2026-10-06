@@ -1,0 +1,10 @@
+{
+ "best_model": "CNN+BiLSTM",
+ "cohen_kappa": 0.9203,
+ "matthews_corrcoef": 0.9209,
+ "precision_weighted": 0.9376,
+ "recall_weighted": 0.9339,
+ "f1_weighted": 0.9345,
+ "mean_confidence": 0.9664,
+ "std_confidence": 0.0954
+}

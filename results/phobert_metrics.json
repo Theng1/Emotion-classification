@@ -1,0 +1,60 @@
+{
+ "summary": {
+  "model": "PhoBERT (frozen) + MLP",
+  "accuracy": 0.9328,
+  "precision_macro": 0.9293,
+  "recall_macro": 0.9253,
+  "f1_macro": 0.9266
+ },
+ "per_class_report": {
+  "anger": {
+   "precision": 0.925777331995988,
+   "recall": 0.9654811715481172,
+   "f1-score": 0.9452124935995904,
+   "support": 956.0
+  },
+  "disgust": {
+   "precision": 0.8653846153846154,
+   "recall": 0.8166969147005445,
+   "f1-score": 0.8403361344537815,
+   "support": 551.0
+  },
+  "fear": {
+   "precision": 0.9911209766925638,
+   "recall": 0.9955406911928651,
+   "f1-score": 0.9933259176863182,
+   "support": 897.0
+  },
+  "happiness": {
+   "precision": 0.878727634194831,
+   "recall": 0.9515608180839612,
+   "f1-score": 0.9136950904392764,
+   "support": 929.0
+  },
+  "sadness": {
+   "precision": 0.9475374732334048,
+   "recall": 0.9247648902821317,
+   "f1-score": 0.9360126916975146,
+   "support": 957.0
+  },
+  "surprise": {
+   "precision": 0.9669703872437357,
+   "recall": 0.8974630021141649,
+   "f1-score": 0.930921052631579,
+   "support": 946.0
+  },
+  "accuracy": 0.9327731092436975,
+  "macro avg": {
+   "precision": 0.9292530697908564,
+   "recall": 0.9252512479869641,
+   "f1-score": 0.9265838967513432,
+   "support": 5236.0
+  },
+  "weighted avg": {
+   "precision": 0.9336880994924096,
+   "recall": 0.9327731092436975,
+   "f1-score": 0.9325630066638563,
+   "support": 5236.0
+  }
+ }
+}

@@ -1,0 +1,165 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{cite}
+\title{Deep Learning and Transformer-Based Approaches\\for Emotion Classification of Vietnamese E-commerce Product Reviews}
+\author{Tran Ngoc Thanh}
+\date{October 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Sentiment analysis of customer reviews is a valuable tool for e-commerce platforms. While most work on Vietnamese text focuses on polarity classification, finer-grained emotion recognition provides deeper insight into customer experience. This project addresses multi-class emotion classification of product reviews collected from Tiki, one of the largest Vietnamese e-commerce platforms. We compare four deep learning architectures (MLP, CNN, BiLSTM and a CNN+BiLSTM hybrid) trained from scratch on top of word embeddings with a transformer-based approach (frozen PhoBERT feature extraction). The best result on the shared test set of 5,236 reviews was achieved by the CNN+BiLSTM hybrid with an accuracy of 0.9339 and a macro F1-score of 0.9289; the frozen-PhoBERT classifier is a close competitor (accuracy 0.9328, macro F1 0.9266). To the best of our knowledge, this is the first public benchmark for emotion classification on this dataset. The project repository is available at: \textit{https://github.com/Theng1/Emotion-classification}.
+\end{abstract}
+
+\section{Introduction}
+Tiki is a major Vietnamese e-commerce marketplace where customers leave millions of product reviews. Such electronic word-of-mouth strongly influences purchasing decisions, and automatic analysis of reviews helps platforms and sellers monitor customer satisfaction. Most sentiment analysis systems predict coarse polarity (positive/negative), yet customer feedback carries richer emotional signals: anger about a broken product, surprise about unexpected service quality, or fear related to warranty issues.
+
+This project formulates the task as six-class emotion classification of Vietnamese reviews (anger, disgust, fear, happiness, sadness, surprise). We hypothesized that architectures capturing local n-gram patterns (CNN), long-range dependencies (BiLSTM) and pretrained semantic knowledge (PhoBERT) would rank differently on this task. To test this, we trained and evaluated five models under an identical experimental protocol.
+
+
+\section{Related Work}
+Sentiment analysis for Vietnamese, a low-resource language, has been an active research topic. The VLSP workshop series organized shared tasks on sentiment analysis: the 2016 campaign targeted polarity classification of electronic product reviews, while the 2018 campaign addressed aspect-based sentiment analysis with datasets of 4,751 restaurant and 5,600 hotel reviews [Nguyen et al., 2019]. Van Nguyen et al. introduced UIT-VSFC, a corpus of over 16,000 students' feedback sentences annotated for sentiment and topic, where a Maximum Entropy baseline achieved approximately 88\% sentiment F1-score. Regarding neural approaches, Vo et al. proposed a multi-channel LSTM-CNN architecture for Vietnamese sentiment analysis, combining multiple embedding channels.
+
+Emotion recognition is a finer-grained special case of sentiment analysis. Ho et al. built UIT-VSMEC, the first Vietnamese Social Media Emotion Corpus with 6,927 sentences annotated with the six basic emotions, and reported a CNN with word2vec embeddings as their best model with a weighted F1-score of 59.74\%. Our dataset follows the same emotion schema, which makes UIT-VSMEC results the closest published reference point; however, direct comparison is only indicative, since the corpora differ in domain (social media posts vs.\ e-commerce reviews) and class balance. Nguyen et al. presented ViSoBERT, pretrained on Vietnamese social media texts, achieving state-of-the-art results on five downstream tasks including emotion recognition on UIT-VSMEC (accuracy 68.10\%).
+
+Pre-trained transformer language models changed the landscape of Vietnamese NLP. BERT introduced masked language model pre-training, and Nguyen and Nguyen released PhoBERT, the first large-scale monolingual pre-trained model for Vietnamese, which consistently outperforms the multilingual XLM-R on Vietnamese downstream tasks. Transfer-learning studies on short user reviews show that frozen transformer features with a lightweight classifier head form a strong and cheap baseline for text classification, motivating our PhoBERT feature-extraction setup.
+
+\section{Model Description}
+All models described below predict one of six emotion labels for a review.
+
+\subsection{MLP}
+A feed-forward network on top of a randomly initialized embedding layer (128 dimensions, vocabulary of 20,000 tokens) with global average pooling over the sequence and two dense blocks, ending with a 6-way softmax. Dropout and L2 regularization guard against overfitting.
+
+\subsection{CNN}
+A 1D convolutional network with two convolutional blocks (kernel size 3, 128 filters), batch normalization and global max pooling on top of the same embedding layer. Convolutional filters act as learned n-gram detectors, which suits the short review texts.
+
+\subsection{BiLSTM}
+A two-layer bidirectional LSTM (128 units per direction) over the embedding sequence, capturing longer-range dependencies between words at the cost of sequential computation.
+
+\subsection{CNN+BiLSTM Hybrid}
+A hybrid where convolutional layers first extract local n-gram features and a BiLSTM models longer-range dependencies on top of them; the final hidden state is passed to a dense softmax layer. The combination of local pattern detectors and sequence modelling was expected to be the strongest from-scratch architecture.
+
+All four networks share the training configuration in Table~\ref{tab:dlconfig}: AdamW optimizer (lr $5\times10^{-4}$, weight decay 0.01), batch size 128, at most 20 epochs with EarlyStopping (patience 5), learning-rate reduction on plateau (factor 0.3, patience 2), sequence length 100 tokens, balanced class weights, and random deletion ($p=0.15$) plus word-swap augmentation on 20\% of the training set.
+
+\begin{table}[h]
+\centering
+\caption{Deep learning models: training configuration.}
+\label{tab:dlconfig}
+\begin{tabular}{ll}
+\hline
+Parameter & Value \\
+\hline
+Optimizer & AdamW (lr $5\times10^{-4}$, weight decay 0.01) \\
+Batch size & 128 \\
+Max.\ epochs & 20 (EarlyStopping, patience 5) \\
+LR reduction & factor 0.3, patience 2 \\
+Sequence length & 100 tokens \\
+Class weights & balanced (sklearn) \\
+Text augmentation & random deletion ($p=0.15$) + swap, 20\% of train \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{PhoBERT Feature Extraction}
+Following the transfer-learning methodology of the reference project, the pre-trained PhoBERT-base model (135M parameters) is used as a frozen feature extractor: the [CLS] token representation (768 dimensions) of each review is computed once, and only a custom classifier head is trained on top. The head progressively reduces the layer width ($256\to128\to64\to32\to6$) with tanh activations and dropout of 0.1 (Table~\ref{tab:phoberthead}).
+
+\begin{table}[h]
+\centering
+\caption{Classifier head on top of frozen PhoBERT features.}
+\label{tab:phoberthead}
+\begin{tabular}{llll}
+\hline
+Layer & Activation & Parameters & Initialization \\
+\hline
+Dense, 256 & Tanh & 196,864 & he normal \\
+Dense, 128 & Tanh & 32,896 & he normal \\
+Dropout, 10\% & -- & 0 & -- \\
+Dense, 64 & Tanh & 8,256 & he normal \\
+Dense, 32 & Tanh & 2,080 & he normal \\
+Dropout, 10\% & -- & 0 & -- \\
+Dense, 6 & Softmax & 198 & he normal \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Dataset}
+\subsection{Collecting}
+The dataset consists of 26,382 product reviews scraped from product pages of the Tiki e-commerce platform. Each review was labeled with one of six emotion categories (anger, disgust, fear, happiness, sadness, surprise) following the basic-emotion schema of Ekman, also used by the UIT-VSMEC corpus. To the best of our knowledge, no published benchmark exists for emotion classification on this dataset, so the results reported here constitute the first reference point.
+
+\subsection{Preprocessing}
+The preprocessing pipeline was designed for the specifics of Vietnamese social text. First, teencode (informal abbreviations common in Vietnamese internet writing) is normalized using a dictionary with a blacklist of ambiguous one- and two-letter abbreviations. Second, URLs, e-mail addresses and phone numbers are removed, digits are replaced by a special number\_token, all characters except Vietnamese letters are discarded, and the text is lowered. Third, the text is segmented into words with the underthesea tokenizer -- an important step for Vietnamese, where words may consist of multiple syllables -- and stop words are removed, while compound words are joined with an underscore (e.g., h\`ai l\`ong $\to$ hai\_long). Reviews shorter than two words after preprocessing were discarded, leaving 26,176 samples.
+
+The dataset was split once into a training set (80\%, 20,940 reviews) and a test set (20\%, 5,236 reviews) with stratification by class and a fixed random seed; the identical split was used for all models to ensure fair comparison. For the deep learning models, the training set was additionally augmented with randomly deleted and swapped words (20\% of the training size), and balanced class weights were applied to handle the moderate imbalance (the smallest class, disgust, is about 1.7 times smaller than the largest).
+
+\section{Experiments}
+\subsection{Metrics}
+Since this is a multi-class classification problem with moderate class imbalance, we report precision, recall and F1-score per class, as well as macro-averaged F1 as the main metric: macro averaging weights all six classes equally, preventing the majority classes from dominating the evaluation. Accuracy is reported for completeness. For the best model we additionally computed Cohen's $\kappa$ and the Matthews correlation coefficient.
+
+\subsection{Experiment Setup}
+The deep learning models were trained on a Tesla P100 GPU with mixed precision, using the configuration from Table~\ref{tab:dlconfig}; the best weights according to validation loss were restored after training. The PhoBERT feature-extraction experiment was run once on GPU: frozen [CLS] features were extracted for the train and test splits, and the classifier head was trained for 60 epochs with Adam (lr $10^{-3}$, batch size 256). All five models share the identical test split.
+
+\section{Results}
+Results for all trained models on the shared test set are presented in Table~\ref{tab:results}.
+
+\begin{table}[h]
+\centering
+\caption{Results on the test set (5,236 reviews), sorted by macro F1.}
+\label{tab:results}
+\begin{tabular}{lcccc}
+\hline
+Model & Accuracy & P (macro) & R (macro) & F1 (macro) \\
+\hline
+CNN+BiLSTM (Keras) & \textbf{0.9339} & \textbf{0.9312} & \textbf{0.9289} & \textbf{0.9289} \\
+MLP (Keras) & 0.9326 & 0.9267 & 0.9283 & 0.9268 \\
+PhoBERT (frozen) + MLP & 0.9328 & 0.9293 & 0.9253 & 0.9266 \\
+CNN (Keras) & 0.9322 & 0.9286 & 0.9264 & 0.9265 \\
+BiLSTM (Keras) & 0.9305 & 0.9299 & 0.9247 & 0.9256 \\
+\hline
+\end{tabular}
+\end{table}
+
+All five models form a tight group: the spread between the best (CNN+BiLSTM, macro F1 0.9289) and the worst (BiLSTM, 0.9256) is below 0.4 percentage points. The CNN+BiLSTM hybrid confirms the initial hypothesis that combining local n-gram detectors with sequence modelling helps, although the margin over the plain MLP is small (0.2 p.p.). The frozen PhoBERT classifier achieves the second-best accuracy (0.9328) but the lowest macro recall among the top models: without fine-tuning, the generic [CLS] representation does not separate the confusable classes better than embeddings trained end-to-end on the task. The BiLSTM is the slowest to train and the weakest overall, suggesting that for short reviews the sequential inductive bias brings little benefit over pooling or convolution.
+
+Per-class results of the best model (Table~\ref{tab:perclass}) show that fear is recognized almost perfectly (F1 0.9944) -- such reviews typically concern warranty and safety issues with a very characteristic vocabulary. The hardest class is disgust (F1 0.8484): its most frequent confusion is with happiness (9.8\% of disgust reviews), because many such reviews describe a product defect that was resolved by customer support, mixing complaint vocabulary with gratitude. Surprise is occasionally confused with happiness and sadness for the same reason of mixed emotional colouring. The same error pattern was observed for all five models, confirming that this is a property of the data rather than of a particular architecture. For the best model (CNN+BiLSTM) we additionally obtained Cohen's $\kappa = 0.9203$ and MCC $= 0.9209$, indicating almost perfect agreement beyond chance, with mean prediction confidence 0.966.
+
+\begin{table}[h]
+\centering
+\caption{Per-class metrics of the best model (CNN+BiLSTM).}
+\label{tab:perclass}
+\begin{tabular}{lccc}
+\hline
+Label & Precision & Recall & F1-score \\
+\hline
+anger & 0.9247 & 0.9508 & 0.9376 \\
+disgust & 0.8438 & 0.8530 & 0.8484 \\
+fear & 0.9933 & 0.9955 & 0.9944 \\
+happiness & 0.8509 & 0.9645 & 0.9041 \\
+sadness & 0.9886 & 0.9101 & 0.9478 \\
+surprise & 0.9861 & 0.8996 & 0.9409 \\
+\hline
+macro avg & 0.9312 & 0.9289 & 0.9289 \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Conclusion}
+In this project we built a complete pipeline for emotion classification of Vietnamese e-commerce reviews and compared five neural approaches under an identical experimental protocol. The CNN+BiLSTM hybrid achieved the best result (accuracy 0.9339, macro F1 0.9289), marginally ahead of a simple MLP and of frozen PhoBERT features with a lightweight head; all differences, however, are within a narrow band, indicating that the task in this comparatively clean and balanced e-commerce domain is largely saturated for the reviewed model classes. Compared with published results on the closest related corpus (UIT-VSMEC, where the best reported macro F1 is 65.88\%), all our models achieve substantially higher scores (macro F1 above 0.92), which can be attributed to the cleaner and more balanced e-commerce domain and highlights that the collected Tiki dataset is a useful benchmark for Vietnamese emotion recognition. Since no published baseline exists for this dataset, our CNN+BiLSTM result constitutes the current reference (state of the art) for this benchmark. Future work includes end-to-end fine-tuning of PhoBERT/ViSoBERT, which is the most promising direction given that frozen features already match trained-from-scratch architectures, and extending the dataset with additional product categories.
+
+\begin{thebibliography}{8}
+\bibitem{conneau} Conneau, A., Khandelwal, K., Goyal, N., et al. Unsupervised cross-lingual representation learning at scale. ACL 2020.
+\bibitem{devlin} Devlin, J., Chang, M.-W., Lee, K., Toutanova, K. BERT: Pre-training of deep bidirectional transformers for language understanding. NAACL-HLT 2019.
+\bibitem{ho} Ho, V., Nguyen, D., Nguyen, D., Pham, L., Nguyen, K., Nguyen, N. Emotion recognition for Vietnamese social media text. PACLING 2019.
+\bibitem{phobert} Nguyen, D.Q., Nguyen, A.T. PhoBERT: Pre-trained language models for Vietnamese. Findings of EMNLP 2020.
+\bibitem{visobert} Nguyen, Q.-N., Phan, T.C., Nguyen, D.-V., Nguyen, K.V., Nguyen, N.L.-T. ViSoBERT: A pre-trained language model for Vietnamese social media text processing. EMNLP 2023.
+\bibitem{vlsp} Nguyen, H.T.-M., et al. VLSP shared task: Sentiment analysis. Journal of Computer Science and Cybernetics, 34(4), 2019.
+\bibitem{vsfc} Van Nguyen, K., et al. UIT-VSFC: Vietnamese students' feedback corpus for sentiment analysis. KSE 2018.
+\bibitem{vo} Vo, Q.-H., Nguyen, H.-T., Le, B., Nguyen, M.-L. Multi-channel LSTM-CNN model for Vietnamese sentiment analysis. KSE 2017.
+\end{thebibliography}
+
+\end{document}

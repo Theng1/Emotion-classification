@@ -1,0 +1,3 @@
+model,accuracy,precision_macro,recall_macro,f1_macro
+Logistic Regression (TF-IDF),0.9423,0.938,0.9384,0.9374
+CNN+BiLSTM (Keras),0.9339,0.9312,0.9289,0.9289
